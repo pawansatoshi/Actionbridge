@@ -2,132 +2,53 @@
 
 import { FormEvent, useEffect, useRef, useState } from "react";
 
-type CallResponse = {
-  callId?: string;
-  status?: string;
-  taskCompleted?: boolean;
-  completionConfidence?: unknown;
-  structuredResult?: unknown;
-  evidence?: unknown;
-  error?: string;
-};
+type CallResponse = { callId?: string; status?: string; taskCompleted?: boolean; completionConfidence?: unknown; structuredResult?: unknown; evidence?: unknown; error?: string };
 
+type View = "overview" | "task" | "calls" | "results" | "history" | "settings" | "docs";
 const terminalStatuses = new Set(["completed", "failed", "cancelled", "canceled", "error"]);
 
-export default function Home() {
-  const [goal, setGoal] = useState("");
-  const [phone, setPhone] = useState("");
-  const [region, setRegion] = useState("IN");
-  const [locale, setLocale] = useState("en-IN");
-  const [approved, setApproved] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<CallResponse | null>(null);
-  const pollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+const nav: Array<[View, string, string]> = [
+  ["overview", "⌂", "Command Center"], ["task", "+", "New Task"], ["calls", "◉", "Live Calls"],
+  ["results", "✓", "Results & Evidence"], ["history", "↺", "History"], ["settings", "⚙", "Settings"], ["docs", "?", "Documentation"],
+];
 
-  useEffect(() => () => {
-    if (pollTimer.current) clearTimeout(pollTimer.current);
-  }, []);
+export default function Home() {
+  const [view, setView] = useState<View>("overview");
+  const [goal, setGoal] = useState(""); const [phone, setPhone] = useState(""); const [region, setRegion] = useState("IN"); const [locale, setLocale] = useState("en-IN");
+  const [approved, setApproved] = useState(false); const [loading, setLoading] = useState(false); const [result, setResult] = useState<CallResponse | null>(null);
+  const [history, setHistory] = useState<CallResponse[]>([]); const pollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (pollTimer.current) clearTimeout(pollTimer.current); }, []);
 
   async function readStatus(callId: string, attempt = 0) {
-    try {
-      const response = await fetch(`/api/calls/${encodeURIComponent(callId)}`, { cache: "no-store" });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Unable to read call status.");
-      setResult((current) => ({ ...current, ...data, callId }));
-      const status = typeof data.status === "string" ? data.status.toLowerCase() : "";
-      if (!terminalStatuses.has(status) && !data.taskCompleted && attempt < 30) {
-        pollTimer.current = setTimeout(() => readStatus(callId, attempt + 1), 2000);
-      } else {
-        setLoading(false);
-      }
-    } catch (error) {
-      setResult((current) => ({
-        ...current,
-        callId,
-        error: error instanceof Error ? error.message : "Unable to read call status.",
-      }));
-      setLoading(false);
-    }
+    try { const response = await fetch(`/api/calls/${encodeURIComponent(callId)}`, { cache: "no-store" }); const data = await response.json(); if (!response.ok) throw new Error(data.error || "Unable to read call status.");
+      setResult(c => ({ ...c, ...data, callId })); const status = typeof data.status === "string" ? data.status.toLowerCase() : "";
+      if (!terminalStatuses.has(status) && !data.taskCompleted && attempt < 30) pollTimer.current = setTimeout(() => readStatus(callId, attempt + 1), 2000); else { setLoading(false); setHistory(h => [{ ...data, callId }, ...h.filter(x => x.callId !== callId)].slice(0, 20)); }
+    } catch (error) { setResult(c => ({ ...c, callId, error: error instanceof Error ? error.message : "Unable to read call status." })); setLoading(false); }
   }
-
-  async function submit(e: FormEvent) {
-    e.preventDefault();
-    setResult(null);
-    setLoading(true);
-    try {
-      const response = await fetch("/api/calls", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ goal, phone, region, locale, approved }),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "The call could not be started.");
-      setResult(data);
-      if (data.callId) await readStatus(data.callId);
-      else setLoading(false);
-    } catch (error) {
-      setResult({ error: error instanceof Error ? error.message : "Unexpected error" });
-      setLoading(false);
-    }
+  async function submit(e: FormEvent) { e.preventDefault(); setResult(null); setLoading(true); setView("calls");
+    try { const response = await fetch("/api/calls", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ goal, phone, region, locale, approved }) }); const data = await response.json(); if (!response.ok) throw new Error(data.error || "The call could not be started."); setResult(data); if (data.callId) await readStatus(data.callId); else setLoading(false); }
+    catch (error) { setResult({ error: error instanceof Error ? error.message : "Unexpected error" }); setLoading(false); }
   }
+  function clearForm() { if (pollTimer.current) clearTimeout(pollTimer.current); setGoal(""); setPhone(""); setResult(null); setApproved(false); setLoading(false); }
+  const status = result?.status || (loading ? "starting" : "idle"); const completed = result?.taskCompleted === true || status.toLowerCase() === "completed";
+  const navTo = (v: View) => setView(v);
 
-  function clearForm() {
-    if (pollTimer.current) clearTimeout(pollTimer.current);
-    setGoal("");
-    setPhone("");
-    setResult(null);
-    setApproved(false);
-    setLoading(false);
-  }
+  return <div className="app-shell">
+    <aside className="sidebar"><div className="brand"><span className="mark"/><span>ActionBridge</span></div><div className="side-label">WORKSPACE</div>{nav.map(([id, icon, label]) => <button key={id} className={`nav-item ${view === id ? "active" : ""}`} onClick={() => navTo(id)}><span>{icon}</span>{label}</button>)}<div className="side-bottom"><div className="live-dot"/> CALL-E / LIVE ACTION LAYER<br/><small>Human approval required</small></div></aside>
+    <main className="main-area"><header className="mobile-top"><div className="brand"><span className="mark"/>ActionBridge</div><span className="live-pill">LIVE</span></header>
+      {view === "overview" && <section><div className="hero"><div className="eyebrow">REAL-WORLD ACTION ORCHESTRATION</div><h1>Turn intention into<br/><em>real-world action.</em></h1><p>ActionBridge transforms a goal into a controlled phone workflow, executes it through CALL-E, captures structured evidence, and keeps consequential actions behind explicit human approval.</p><button className="primary hero-btn" onClick={() => setView("task")}>Create a phone task <span>→</span></button></div><div className="dashboard-grid"><div className="metric-card"><span>ACTIVE TASKS</span><strong>{loading ? "01" : "00"}</strong><small>{loading ? "phone workflow running" : "ready for a new task"}</small></div><div className="metric-card"><span>VERIFICATION</span><strong>{completed ? "100%" : "—"}</strong><small>{completed ? "latest call completed" : "no completed call yet"}</small></div><div className="metric-card"><span>CONTROL MODEL</span><strong>HUMAN</strong><small>approval required for calls</small></div></div><div className="feature-grid"><div className="feature"><b>01</b><h3>Understand</h3><p>Convert an ambiguous request into a bounded phone task with a clear success criterion.</p></div><div className="feature"><b>02</b><h3>Execute</h3><p>CALL-E handles the live conversation and adapts naturally to what the recipient says.</p></div><div className="feature"><b>03</b><h3>Verify</h3><p>Return structured results, evidence and confidence before a user decides what happens next.</p></div></div></section>}
 
-  const status = result?.status || (loading ? "starting" : "idle");
-  const completed = result?.taskCompleted === true || status.toLowerCase() === "completed";
+      {view === "task" && <section className="content"><div className="page-head"><div><div className="eyebrow">01 / TASK WORKSPACE</div><h2>Create a phone task</h2><p>Define exactly what the caller is authorized to accomplish.</p></div></div><form className="task-grid" onSubmit={submit}><div className="panel"><label htmlFor="goal">GOAL / SUCCESS CRITERIA</label><textarea id="goal" required value={goal} onChange={e => setGoal(e.target.value)} placeholder="Example: Confirm whether the electrician can visit tomorrow morning, earliest arrival time, and total price."/><div className="two-col"><div><label htmlFor="phone">RECIPIENT / E.164</label><input id="phone" required value={phone} onChange={e => setPhone(e.target.value)} placeholder="+919876543210" inputMode="tel"/></div><div><label htmlFor="region">REGION</label><input id="region" value={region} onChange={e => setRegion(e.target.value.toUpperCase())} maxLength={2}/></div></div><label htmlFor="locale">LANGUAGE / LOCALE</label><input id="locale" value={locale} onChange={e => setLocale(e.target.value)}/><div className="notice">Real calls are consequential. The agent is instructed to identify itself as AI. Your CALL-E credential remains server-side.</div><label className="check"><input type="checkbox" checked={approved} onChange={e => setApproved(e.target.checked)}/> I authorize this specific phone call.</label><div className="actions"><button className="primary" disabled={!approved || loading}>{loading ? "Running…" : "Authorize & call →"}</button><button type="button" className="secondary" onClick={clearForm}>Clear</button></div></div><div className="panel side-info"><div className="kicker">EXECUTION PLAN</div><div className="timeline"><span>1</span><div><b>Goal captured</b><small>Task and success criteria</small></div><span>2</span><div><b>CALL-E prepared</b><small>Bounded instructions + result schema</small></div><span>3</span><div><b>Live conversation</b><small>Adaptive phone execution</small></div><span>4</span><div><b>Evidence returned</b><small>Structured, confidence-aware result</small></div></div></div></form></section>}
 
-  return (
-    <main className="shell">
-      <header className="topbar">
-        <div className="brand"><span className="mark" /><span>ActionBridge</span></div>
-        <div className="status">CALL-E / LIVE ACTION LAYER</div>
-      </header>
+      {view === "calls" && <section className="content"><div className="page-head"><div><div className="eyebrow">02 / EXECUTION</div><h2>Live Call Center</h2><p>Monitor the current phone workflow without hiding what the system is doing.</p></div><button className="secondary" onClick={() => setView("task")}>+ New call</button></div><div className="panel call-console">{result ? <><div className="call-top"><div className="call-orb">◉</div><div><span className="live-pill">{loading ? "CALL IN PROGRESS" : status.toUpperCase()}</span><h3>{phone || "Recipient"}</h3><p>{goal || "Phone task"}</p></div></div><div className="call-progress"><span className={loading ? "on" : "done"}/><span className={!loading ? "done" : ""}/><span className={completed ? "done" : ""}/></div><div className="result-grid"><span>CALL ID</span><strong>{result.callId || "—"}</strong><span>STATUS</span><strong>{status}</strong><span>CONFIDENCE</span><strong>{String(result.completionConfidence ?? "pending")}</strong><span>TASK</span><strong>{completed ? "Verified" : loading ? "Executing" : "Not completed"}</strong></div>{result.error && <p className="error">{result.error}</p>}</> : <div className="empty"><div>◉</div><h3>No active call</h3><p>Create a task and authorize a call to see live execution here.</p><button className="primary" onClick={() => setView("task")}>Create task</button></div>}</div></section>}
 
-      <section className="hero">
-        <div className="eyebrow">phone work, orchestrated</div>
-        <h1>Turn intention into real-world action.</h1>
-        <p className="lead">ActionBridge turns a real-world goal into a controlled phone workflow. It plans the outreach, executes the call through CALL-E, captures structured evidence, and keeps consequential actions behind explicit human approval.</p>
-      </section>
+      {view === "results" && <section className="content"><div className="page-head"><div><div className="eyebrow">03 / VERIFICATION</div><h2>Results & Evidence</h2><p>Machine-readable outputs are surfaced before consequential action.</p></div></div><div className="panel evidence"><div className="result-grid"><span>COMPLETION</span><strong>{completed ? "VERIFIED" : "PENDING"}</strong><span>CONFIDENCE</span><strong>{String(result?.completionConfidence ?? "—")}</strong><span>CALL ID</span><strong>{result?.callId || "—"}</strong></div><div className="json-grid"><div><label>STRUCTURED RESULT</label><pre>{JSON.stringify(result?.structuredResult ?? { message: "Complete a call to receive structured results." }, null, 2)}</pre></div><div><label>EVIDENCE</label><pre>{JSON.stringify(result?.evidence ?? { message: "Evidence will appear after CALL-E returns it." }, null, 2)}</pre></div></div></div></section>}
 
-      <section className="grid">
-        <form className="panel" onSubmit={submit}>
-          <div className="kicker">01 / define the task</div>
-          <h2>What needs to get done?</h2>
-          <label htmlFor="goal">GOAL</label>
-          <textarea id="goal" required value={goal} onChange={(e) => setGoal(e.target.value)} placeholder="Example: Call this electrician and confirm whether they can visit tomorrow morning, their earliest arrival time, and the total price." />
-          <label htmlFor="phone">RECIPIENT PHONE / E.164</label>
-          <input id="phone" required value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+919876543210" inputMode="tel" autoComplete="tel" />
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-            <div><label htmlFor="region">REGION</label><input id="region" value={region} onChange={(e) => setRegion(e.target.value.toUpperCase())} maxLength={2} /></div>
-            <div><label htmlFor="locale">LANGUAGE / LOCALE</label><input id="locale" value={locale} onChange={(e) => setLocale(e.target.value)} /></div>
-          </div>
-          <div className="notice">Real calls are consequential. ActionBridge requires explicit authorization, keeps the CALL-E credential server-side, and instructs the agent to identify itself as AI.</div>
-          <label style={{display:"flex",gap:10,alignItems:"center",cursor:"pointer",fontFamily:"inherit",fontSize:13}}><input type="checkbox" checked={approved} onChange={(e) => setApproved(e.target.checked)} style={{width:17,height:17,accentColor:"#b9f36b"}} /> I authorize this specific phone call.</label>
-          <div className="actions"><button className="primary" disabled={!approved || loading}>{loading ? "Running phone task…" : "Authorize & call"}</button><button type="button" className="secondary" onClick={clearForm}>Clear</button></div>
-          {result && <div className="result"><div className="kicker">LIVE CALL STATUS · {status}</div>{result.error ? <p className="error">{result.error}</p> : <><div className="result-grid"><span>call id</span><strong>{result.callId || "—"}</strong><span>completion</span><strong>{completed ? "verified" : "in progress"}</strong><span>confidence</span><strong>{String(result.completionConfidence ?? "pending")}</strong></div><pre>{JSON.stringify({ structuredResult: result.structuredResult, evidence: result.evidence }, null, 2)}</pre></>}</div>}
-        </form>
+      {view === "history" && <section className="content"><div className="page-head"><div><div className="eyebrow">04 / AUDIT TRAIL</div><h2>Task History</h2><p>Recent call outcomes and verification states.</p></div></div><div className="panel table">{history.length ? history.map((x, i) => <div className="history-row" key={x.callId || i}><span className="history-icon">◉</span><div><b>{x.callId || "Call"}</b><small>{x.status || "unknown"}</small></div><strong>{x.taskCompleted ? "Verified" : "Incomplete"}</strong></div>) : <div className="empty"><div>↺</div><h3>No history yet</h3><p>Completed calls will appear here after verification.</p></div>}</div></section>}
 
-        <aside className="panel">
-          <div className="kicker">02 / execution model</div>
-          <h2>Evidence before action.</h2>
-          <div className="flow">
-            <div className="step"><div className="num">1</div><div><strong>Understand</strong><span>Capture the goal, recipient and success criteria.</span></div></div>
-            <div className="step"><div className="num">2</div><div><strong>Plan</strong><span>Prepare the phone task and structured result contract.</span></div></div>
-            <div className="step"><div className="num">3</div><div><strong>Call</strong><span>CALL-E performs the live conversation and adapts in real time.</span></div></div>
-            <div className="step"><div className="num">4</div><div><strong>Verify</strong><span>Poll the call until completion and surface evidence and confidence.</span></div></div>
-            <div className="step"><div className="num">5</div><div><strong>Decide</strong><span>Keep consequential next actions behind explicit human approval.</span></div></div>
-          </div>
-          <div className="notice"><strong>Built for real work.</strong><br/>The product is not a voice-bot wrapper. ActionBridge turns an ambiguous real-world intention into a bounded phone task, then returns a machine-readable result that a person can verify and act on.</div>
-        </aside>
-      </section>
-      <div className="footer">ACTIONBRIDGE / PRODUCTION-READY MVP · EXPLICIT AUTHORIZATION · SERVER-SIDE SECRETS · LIVE STATUS VERIFICATION</div>
+      {view === "settings" && <section className="content"><div className="page-head"><div><div className="eyebrow">05 / CONTROL</div><h2>Settings & Safety</h2><p>ActionBridge defaults to human-controlled execution.</p></div></div><div className="settings-grid"><div className="panel setting"><b>Human approval</b><span>Required before every real phone call.</span><i>ENABLED</i></div><div className="panel setting"><b>AI disclosure</b><span>Agent is instructed to identify itself as AI.</span><i>ENABLED</i></div><div className="panel setting"><b>Server-side credentials</b><span>CALL-E API keys are never exposed to the browser.</span><i>ENABLED</i></div><div className="panel setting"><b>Bounded execution</b><span>No arbitrary consequential commitments are authorized.</span><i>ENABLED</i></div></div></section>}
+
+      {view === "docs" && <section className="content"><div className="page-head"><div><div className="eyebrow">06 / DOCUMENTATION</div><h2>How ActionBridge works</h2><p>A practical guide to the product and its safety model.</p></div></div><div className="docs"><article><span>01</span><h3>Understand</h3><p>You provide a real-world goal, recipient and constraints. ActionBridge treats the phone call as an execution step, not the product itself.</p></article><article><span>02</span><h3>Execute with CALL-E</h3><p>The server sends a bounded task to CALL-E. The agent handles the natural conversation and returns structured output.</p></article><article><span>03</span><h3>Verify before action</h3><p>Status, completion, confidence, structured results and evidence are surfaced to the user. Consequential follow-up remains human-controlled.</p></article><article><span>04</span><h3>Build for real work</h3><p>ActionBridge is designed to expand into vendor coordination, appointment recovery, field operations, customer follow-up and other workflows where the final step still requires a phone call.</p></article></div></section>}
     </main>
-  );
+  </div>;
 }
