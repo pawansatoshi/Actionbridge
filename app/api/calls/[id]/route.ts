@@ -1,0 +1,17 @@
+import { NextResponse } from "next/server";
+
+const BASE_URL = process.env.CALLE_BASE_URL || "https://api.heycall-e.com";
+
+export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+  if (!process.env.CALLE_API_KEY) return NextResponse.json({ error: "CALL-E is not configured." }, { status: 503 });
+  const { id } = await params;
+  if (!/^[-_a-zA-Z0-9]+$/.test(id)) return NextResponse.json({ error: "Invalid call id." }, { status: 400 });
+
+  const upstream = await fetch(`${BASE_URL}/v1/calls/${encodeURIComponent(id)}`, {
+    headers: { Authorization: `Bearer ${process.env.CALLE_API_KEY}` },
+    cache: "no-store",
+  });
+  const data = await upstream.json().catch(() => ({}));
+  if (!upstream.ok) return NextResponse.json({ error: data?.error?.message || data?.message || "Unable to read call status." }, { status: upstream.status });
+  return NextResponse.json(data);
+}
