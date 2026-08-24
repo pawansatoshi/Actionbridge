@@ -1,0 +1,3 @@
+import { NextResponse } from "next/server";
+export const runtime="nodejs"; export const dynamic="force-dynamic";
+export async function POST(request:Request){const expected=process.env.CALLE_WEBHOOK_SECRET;if(expected){const supplied=request.headers.get("x-actionbridge-webhook-secret");if(!supplied||supplied!==expected)return NextResponse.json({error:"Unauthorized webhook."},{status:401})}const payload=await request.json().catch(()=>null);if(!payload)return NextResponse.json({error:"Invalid JSON."},{status:400});console.log("ActionBridge CALL-E webhook",JSON.stringify({call_id:payload.call_id||payload.id,status:payload.status,event:payload.event||payload.type}));return NextResponse.json({received:true})}
