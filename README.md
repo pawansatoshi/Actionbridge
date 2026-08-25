@@ -2,15 +2,15 @@
 
 > **From intention to real-world action.**
 
-**Website:** https://actionbridge-pawansatoshis-projects.vercel.app
+**Website:** https://actionbridge.vercel.app
 
-ActionBridge is a goal-driven phone-work orchestration product built for **CALL-E: Your Code Is Calling**. It turns a real-world goal into a controlled workflow: define the task, authorize a call, execute through CALL-E, observe status/events, verify the result, inspect evidence, and keep consequential decisions under human control.
+ActionBridge is a goal-driven phone-work orchestration product built for **CALL-E: Your Code Is Calling**. It turns a real-world goal into a controlled workflow: define the task, review the proposed action, explicitly authorize it in the UI, execute through CALL-E in a deliberately enabled environment, observe status/events, inspect the returned result and evidence, and keep consequential decisions under human control.
 
 ## Product surfaces
 
 - **Command Center** — operating overview and control posture.
 - **Task Workspace** — goal, recipient, region, locale, examples and explicit authorization.
-- **Live Call Center** — call state, developer events, confidence, completion and controlled hangup.
+- **Live Call Center** — call state, developer events, confidence and completion, with the current CALL-E API limitation on active-call termination made explicit.
 - **Results & Evidence** — structured result, evidence and explicit human decision gate.
 - **History** — recent outcomes stored locally in the browser for the no-database hackathon build.
 - **Settings & Safety** — runtime safety boundaries and production configuration guidance.
@@ -20,34 +20,35 @@ ActionBridge is a goal-driven phone-work orchestration product built for **CALL-
 
 `Goal → Validate → Authorize → CALL-E → Status + Events → Structured Result → Evidence → Human Decision`
 
-The phone call is the execution layer, not the product gimmick. ActionBridge is designed for vendor coordination, appointment recovery, field operations, customer follow-up and other workflows where software reaches a boundary that still requires a phone conversation.
+The phone call is the execution layer, not the product gimmick. ActionBridge is designed for vendor coordination, appointment recovery, field operations, customer follow-up and other bounded workflows where software reaches a boundary that still requires a phone conversation.
 
 ## CALL-E integration
 
-The application uses the documented Developer API surfaces:
+The application uses the current documented Developer API surfaces:
 
 - `POST /v1/calls`
 - `GET /v1/calls/{call_id}`
 - `GET /v1/calls/{call_id}/events`
-- `POST /v1/calls/{call_id}/hangup`
-- terminal webhook receiver at `/api/calle/webhook`
+- terminal webhook delivery to the configured ActionBridge endpoint
 
-CALL-E's public integration documentation describes live task progress, structured results, events, transcripts and terminal webhooks. ActionBridge keeps those calls server-side and exposes only the minimum state required by the UI.
+CALL-E returns task status, structured results, completion confidence, evidence and developer-facing events. ActionBridge keeps provider credentials server-side and exposes only the minimum state required by the UI. The current public Developer API documentation does not list an active-call hangup operation, so ActionBridge does not claim or expose a hangup control.
 
-## Safety boundaries
+## Safety and compliance boundaries
 
-- Live calling is disabled unless `CALLE_LIVE_ENABLED=true` is deliberately configured.
-- Every call requires task-specific authorization from the UI.
+- Public/demo production stays in **no-call mode** unless `CALLE_LIVE_ENABLED=true` and `ACTIONBRIDGE_ALLOW_PROD_LIVE=true` are deliberately configured together.
+- The UI requires an explicit confirmation flag before the execution endpoint will proceed, and the signed short-lived plan is bound to the exact goal, recipient, region and locale.
 - Phone numbers are validated as E.164.
-- Region and locale are validated.
+- Region and locale are validated against the current CALL-E supported list.
 - Task size is bounded.
 - A lightweight request rate limit is applied before a live call is created.
-- Each workflow receives an idempotency key.
+- The approval nonce is reused as the CALL-E idempotency key so replaying the same approved workflow does not intentionally create a second call.
 - CALL-E credentials never reach client-side JavaScript.
-- The agent is instructed to identify itself as AI.
-- No purchases, financial commitments, legal commitments, or unrelated consequential actions are authorized by default.
-- Active calls have a controlled server-side hangup route.
-- Terminal webhook requests can be protected with `CALLE_WEBHOOK_SECRET`.
+- The agent is instructed to identify itself as AI and to respect required recording/transcription notices and consent.
+- Emergency/safety-critical and high-risk medical, legal, financial, insurance, employment, housing, credit, education and government-benefit decision/advice workflows are outside the supported scope.
+- No unrelated purchases, financial commitments, legal commitments or other consequential actions are authorized by the execution prompt.
+- Webhook handling follows the current unsigned CALL-E delivery model by validating the event identifier against `CALL-E-Event-Id`; the webhook is an acknowledgement/correlation surface, while the status API remains the authoritative read path for the UI.
+
+CALL-E's current terms place responsibility for recipient authorization, required notices/consents, recording/transcription legal basis, opt-outs and applicable telecommunications/privacy compliance on the caller.
 
 ## Persistence boundary
 
@@ -87,19 +88,20 @@ npm run build
 CALLE_API_KEY=
 CALLE_BASE_URL=https://api.heycall-e.com
 CALLE_LIVE_ENABLED=false
+ACTIONBRIDGE_ALLOW_PROD_LIVE=false
+ACTIONBRIDGE_APPROVAL_SECRET=
 ACTIONBRIDGE_WEBHOOK_URL=
-CALLE_WEBHOOK_SECRET=
 ```
 
 Never expose `CALLE_API_KEY` through a `NEXT_PUBLIC_*` variable.
 
 ## Hackathon status
 
-The application is a genuine runtime CALL-E integration rather than a simulated voice demo. The remaining external submission gates are the controlled live-call verification, public demo video, upstream CALL-E community PR and Devpost submission. These cannot be truthfully marked complete without the corresponding external credentials/access.
+The application contains a real server-side CALL-E integration. The public deployment is intentionally configured as a no-call preview so reviewers can inspect the planning, execution-state and verification surfaces without triggering an outbound call. Controlled live verification remains an opt-in environment step rather than a public-demo behavior.
 
 ## Engineering documents
 
-- `docs/PRODUCT-BLUEPRINT.md` — complete product surface and workflow blueprint.
+- `docs/PRODUCT-BLUEPRINT.md` — product surface and workflow blueprint.
 - `docs/ARCHITECTURE.md` — runtime architecture and production boundaries.
-- `docs/QA-CHECKLIST.md` — verification checklist.
+- `docs/QA-CHECKLIST.md` — verification checklist and known limitations.
 - `docs/supabase-schema.sql` — optional durable production persistence schema.

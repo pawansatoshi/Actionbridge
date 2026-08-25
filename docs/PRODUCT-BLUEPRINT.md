@@ -18,8 +18,8 @@
 - region
 - language/locale
 - quick-start templates
-- explicit authorization
-- safety disclosure
+- explicit authorization checkbox
+- AI/recording-transcription disclosure guidance
 - execution plan
 
 ### Live Call Center
@@ -28,7 +28,7 @@
 - confidence
 - task completion
 - developer-facing events
-- controlled hangup
+- explicit indication that active-call termination is not supported by the current CALL-E API
 
 ### Results & Evidence
 - completion state
@@ -49,6 +49,7 @@
 - bounded execution
 - persistence limitation
 - webhook configuration
+- public no-call mode
 
 ### Documentation
 - workflow explanation
@@ -57,16 +58,16 @@
 
 ## Backend blueprint
 
-`/api/calls` — create a validated, authorized CALL-E task.
+`/api/calls/prepare` — validate the task and produce a short-lived signed plan token; it does not call CALL-E.
+
+`/api/calls` — create a validated, authorized CALL-E task when both deliberate live-call gates are enabled.
 
 `/api/calls/[id]` — retrieve live/terminal status.
 
-`/api/calls/[id]/events` — retrieve CALL-E developer-facing events.
+`/api/calls/[id]/events` — retrieve and normalize CALL-E developer-facing events.
 
-`/api/calls/[id]/hangup` — stop an active call through CALL-E.
-
-`/api/calle/webhook` — receive terminal CALL-E webhook notifications.
+`/api/calle/webhook` — receive and acknowledge terminal CALL-E webhook events after validating the event identifier.
 
 ## Deliberate scope boundary
 
-A full commercial release should add authentication, durable database persistence, server-side audit logs, multi-candidate orchestration, comparison/ranking, approval records and enterprise policy controls. The hackathon build does not pretend those external infrastructure dependencies exist; it exposes the complete workflow surface and documents the production boundary.
+A full commercial release should add authentication, durable database persistence, server-side audit logs, multi-candidate orchestration, comparison/ranking, durable approval records and enterprise policy controls. The public hackathon deployment also stays in no-call mode unless a controlled environment deliberately enables both live-call gates.

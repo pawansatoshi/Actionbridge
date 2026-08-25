@@ -1,3 +1,29 @@
 import { NextResponse } from "next/server";
-export const runtime="nodejs"; export const dynamic="force-dynamic";
-export async function POST(request:Request){const expected=process.env.CALLE_WEBHOOK_SECRET;if(expected){const supplied=request.headers.get("x-actionbridge-webhook-secret");if(!supplied||supplied!==expected)return NextResponse.json({error:"Unauthorized webhook."},{status:401})}const payload=await request.json().catch(()=>null);if(!payload)return NextResponse.json({error:"Invalid JSON."},{status:400});console.log("ActionBridge CALL-E webhook",JSON.stringify({call_id:payload.call_id||payload.id,status:payload.status,event:payload.event||payload.type}));return NextResponse.json({received:true})}
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+export async function POST(request: Request) {
+  const payload = await request.json().catch(() => null);
+  if (!payload || typeof payload !== "object") {
+    return NextResponse.json({ error: "Invalid JSON." }, { status: 400 });
+  }
+
+  const bodyId = typeof (payload as any).id === "string" ? (payload as any).id : null;
+  const headerId = request.headers.get("CALL-E-Event-Id");
+  if (!bodyId || !headerId || bodyId !== headerId) {
+    return NextResponse.json({ error: "Webhook event id does not match the CALL-E-Event-Id header." }, { status: 401 });
+  }
+
+  console.log(
+    "ActionBridge CALL-E webhook",
+    JSON.stringify({
+      event_id: bodyId,
+      call_id: (payload as any).call_id || null,
+      status: (payload as any).status,
+      event: (payload as any).event || (payload as any).type,
+    }),
+  );
+
+  return NextResponse.json({ received: true, eventId: bodyId });
+}
