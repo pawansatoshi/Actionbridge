@@ -1,0 +1,18 @@
+/* Mobile overflow hardening for expanded history and long CALL-E payloads. */
+html,body{width:100%;max-width:100%;overflow-x:hidden}
+.app-shell,.main-area,.content,.panel,.table,.history-row,.history-row>*{min-width:0;max-width:100%}
+.history-row{overflow:hidden}
+.history-row b,.history-row small,.history-row strong{min-width:0;max-width:100%;overflow-wrap:anywhere;word-break:break-word}
+.history-row strong{text-overflow:clip;white-space:normal}
+.history-row pre,.history-row code{max-width:100%;min-width:0;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word}
+@media(max-width:680px){
+.content{width:100%;max-width:100%;overflow-x:hidden}
+.table{width:100%;padding:5px 12px;overflow:hidden}
+.history-row{grid-template-columns:22px minmax(0,1fr);gap:8px;padding:15px 2px}
+.history-row>strong{grid-column:2;text-align:left;white-space:normal}
+.history-row b{font-size:10px;overflow-wrap:anywhere}
+.history-row small{font-size:9px;line-height:1.5;overflow-wrap:anywhere}
+.history-row pre{font-size:10px;line-height:1.5;max-width:100%;overflow-x:auto;white-space:pre-wrap;overflow-wrap:anywhere}
+.history-row button,.history-row a{max-width:100%;width:100%;white-space:normal;overflow-wrap:anywhere}
+.evidence pre{max-width:100%;overflow-x:auto;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word}
+}
