@@ -1,0 +1,1 @@
+.call-console .error{margin-top:20px;padding:13px 15px;border:1px solid #355247;border-radius:11px;background:#101d19;color:#b9f36b;font-size:11px;line-height:1.6}.call-console .error::before{content:"PUBLIC PREVIEW MODE";display:block;margin-bottom:5px;font:500 9px 'DM Mono',monospace;letter-spacing:.1em;color:#b9f36b}.call-console .error{box-shadow:inset 3px 0 0 #b9f36b}
