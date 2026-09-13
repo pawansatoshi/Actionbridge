@@ -16,3 +16,6 @@ html,body{width:100%;max-width:100%;overflow-x:hidden}
 .history-row button,.history-row a{max-width:100%;width:100%;white-space:normal;overflow-wrap:anywhere}
 .evidence pre{max-width:100%;overflow-x:auto;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word}
 }
+
+/* Avoid rendering the same execution error twice when both result.error and message contain it. */
+.call-console .error + .error{display:none}
